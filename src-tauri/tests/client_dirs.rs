@@ -50,24 +50,17 @@ fn empty_missing_and_blank_paths_are_none_and_claude_wins_on_conflict() {
 }
 
 #[test]
-fn builtin_dirs_are_four_paths_with_two_kinds() {
-    let home = std::path::PathBuf::from("/fake/home");
+fn builtin_dirs_include_platform_specific_paths() {
+    let home = std::env::temp_dir().join("ccproxy-fake-home");
     let dirs = builtin_dirs(Some(&home));
-    let actual: Value = serde_json::to_value(
-        dirs.iter()
-            .map(|entry| json!({ "kind": entry.kind, "path": entry.path }))
-            .collect::<Vec<Value>>(),
-    )
-    .unwrap();
-    assert_eq!(
-        actual,
-        json!([
-            { "kind": "claude", "path": "/fake/home/.claude" },
-            { "kind": "codex", "path": "/fake/home/.codex" },
-            { "kind": "claude", "path": "/fake/home/Library/Developer/Xcode/CodingAssistant/ClaudeAgentConfig" },
-            { "kind": "codex", "path": "/fake/home/Library/Developer/Xcode/CodingAssistant/codex" }
-        ])
-    );
+    assert_eq!(dirs[0].kind, "claude");
+    assert_eq!(dirs[1].kind, "codex");
+    assert_eq!(dirs[0].path, home.join(".claude").to_string_lossy());
+    assert_eq!(dirs[1].path, home.join(".codex").to_string_lossy());
+    #[cfg(target_os = "macos")]
+    assert_eq!(dirs.len(), 4);
+    #[cfg(not(target_os = "macos"))]
+    assert_eq!(dirs.len(), 2);
 }
 
 #[test]
@@ -112,7 +105,8 @@ fn scan_keeps_only_matching_builtins_and_fixes_manual_kinds() {
 
 #[test]
 fn scan_defaults_manual_to_empty() {
-    let scan = scan_client_dirs(Some(std::path::Path::new("/fake/home")), &[]);
+    let fake_home = std::env::temp_dir().join("ccproxy-fake-home");
+    let scan = scan_client_dirs(Some(&fake_home), &[]);
     assert!(scan.manual.is_empty());
     assert!(scan.dropped.is_empty());
 }

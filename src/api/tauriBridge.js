@@ -5,6 +5,17 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 
+function detectPlatform() {
+  const ua = navigator.userAgent || ''
+  if (/Windows/i.test(ua)) return 'win32'
+  if (/Macintosh|Mac OS X/i.test(ua)) return 'darwin'
+  return 'linux'
+}
+
+function installPlatformClass(platform) {
+  document.documentElement.dataset.platform = platform
+}
+
 // 订阅统一返回取消订阅函数，组件卸载时直接调
 function subscribe(channel, callback) {
   let unlisten = null
@@ -22,10 +33,13 @@ function subscribe(channel, callback) {
 // 在 Tauri 环境里装桥；纯浏览器打开（npm run dev）时装一份空壳，
 // 界面照常渲染（只是所有命令都返回失败），方便单独调界面
 export function installTauriBridge() {
+  const platform = detectPlatform()
+  installPlatformClass(platform)
+
   if (!('__TAURI_INTERNALS__' in window)) {
     console.warn('[CCProxy] 不在 Tauri 环境里，界面命令不可用（只能看布局）。完整功能请用 npm run tauri:dev')
     window.electronAPI = new Proxy(
-      { platform: 'darwin' },
+      { platform },
       {
         get: (target, key) =>
           key in target
@@ -64,7 +78,7 @@ export function installTauriBridge() {
     clearUsage: () => invoke('clear_usage'),
     // 日志是旁路：写不进去也不能影响界面
     log: (level, message, data) => invoke('log', { level, message, data }).catch(() => {}),
-    platform: 'darwin'
+    platform
   }
 
   window.electronEvents = {

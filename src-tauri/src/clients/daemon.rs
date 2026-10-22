@@ -2,7 +2,7 @@
 // 之后磁盘上这两份文件被改它也不会重读——用户看到的是「改了没生效」。
 // 这里从 pid 文件认出正在跑的 daemon，界面据此提醒执行 `codex app-server daemon restart`。
 //
-// 不走 `codex app-server daemon version`：从访达启动的 App 里 PATH 通常没有 homebrew，
+// 不走 `codex app-server daemon version`：从访达或快捷方式启动的 App 里 PATH 通常不完整，
 // 而 pid 文件就在 codex 目录下，认得它就不需要外部命令，离线也能判断。
 
 use std::fs;
@@ -47,13 +47,45 @@ fn process_alive(pid: u32) -> Option<bool> {
     Some(status.success())
 }
 
-#[cfg(not(unix))]
+// Windows 上用 OpenProcess + GetExitCodeProcess 探活。权限不足时返回 None，
+// 让调用方退回「pid 文件存在」的保守判断，而不是把正在运行的进程误报成停止。
+#[cfg(target_os = "windows")]
+fn process_alive(pid: u32) -> Option<bool> {
+    use windows_sys::Win32::Foundation::{CloseHandle, ERROR_ACCESS_DENIED, STILL_ACTIVE};
+    use windows_sys::Win32::System::Threading::{
+        GetExitCodeProcess, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+    };
+
+    if pid == 0 {
+        return Some(false);
+    }
+    let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+    if handle.is_null() {
+        return if std::io::Error::last_os_error().raw_os_error() == Some(ERROR_ACCESS_DENIED as i32) {
+            None
+        } else {
+            Some(false)
+        };
+    }
+    let mut exit_code = 0u32;
+    let ok = unsafe { GetExitCodeProcess(handle, &mut exit_code) };
+    unsafe {
+        CloseHandle(handle);
+    }
+    if ok == 0 {
+        None
+    } else {
+        Some(exit_code == STILL_ACTIVE as u32)
+    }
+}
+
+#[cfg(not(any(unix, target_os = "windows")))]
 fn process_alive(_pid: u32) -> Option<bool> {
     None
 }
 
-// 体检一个 codex 目录。探不出死活（非 unix、没有 /bin/kill）时按 pid 文件在不在算，
-// 宁可多提醒一次：真没跑 daemon 时用户执行 restart 也只是把它起起来
+// 体检一个 codex 目录。探不出死活时按 pid 文件在不在算，宁可多提醒一次：
+// 真没跑 daemon 时用户执行 restart 也只是把它起起来
 pub fn inspect(dir_path: &str) -> CodexDaemon {
     let pid = fs::read_to_string(Path::new(dir_path).join(DAEMON_DIR).join(DAEMON_PID_FILE))
         .ok()

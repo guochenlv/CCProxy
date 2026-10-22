@@ -1,4 +1,4 @@
-// 应用日志：JSON Lines 写 /tmp/ccproxy/app.log，格式与原 Electron 版同构。
+// 应用日志：JSON Lines 写平台默认日志目录下的 app.log，格式与原 Electron 版同构。
 // 日志是旁路：写失败绝不能影响代理主流程。
 
 use std::fs;
@@ -61,7 +61,7 @@ impl Logger {
 static LOGGER: OnceLock<Logger> = OnceLock::new();
 
 fn logger() -> &'static Logger {
-    LOGGER.get_or_init(|| Logger::new("/tmp/ccproxy", false))
+    LOGGER.get_or_init(|| Logger::new(crate::platform::default_log_dir(), false))
 }
 
 // 启动阶段调用一次，把日志目录定下来；之后各处用自由函数写日志

@@ -236,7 +236,7 @@ onMounted(() => {
       <div class="setting-row">
         <div class="setting-info">
           <span class="setting-name">开机自启</span>
-          <span class="setting-desc">登录 macOS 后自动启动 CCProxy（同步到系统设置的用户与群组登录项）</span>
+          <span class="setting-desc">登录系统后自动启动 CCProxy（macOS 写入登录项，Windows 写入当前用户启动项）</span>
         </div>
         <div class="setting-control">
           <Toggle :model-value="launchAtLogin" :disabled="configStore.saving" @change="onToggleLaunchAtLogin" />

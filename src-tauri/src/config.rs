@@ -1342,7 +1342,7 @@ impl ConfigManager {
         text.push('\n');
         fs::write(&self.temp_path, text).map_err(|error| error.to_string())?;
         set_mode(&self.temp_path, 0o600);
-        fs::rename(&self.temp_path, &self.config_path).map_err(|error| error.to_string())?;
+        crate::platform::replace_file(&self.temp_path, &self.config_path)?;
 
         Ok((config, result.issues))
     }

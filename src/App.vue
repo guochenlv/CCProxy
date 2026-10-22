@@ -154,6 +154,12 @@ onUnmounted(() => {
   background: transparent;
 }
 
+/* Windows / Linux 使用系统标题栏，不再为 macOS 红绿灯预留左侧空间 */
+:global(html[data-platform='win32']) .app-topbar,
+:global(html[data-platform='linux']) .app-topbar {
+  padding-left: var(--spacing-xl);
+}
+
 .app-title {
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);

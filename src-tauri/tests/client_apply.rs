@@ -168,6 +168,16 @@ fn claude_fills_empty_env_object() {
     assert_eq!(inspect_client_config(&dir.path_string(), "claude", &context()).status, "ok");
 }
 
+#[test]
+fn claude_second_apply_replaces_the_existing_file() {
+    let dir = TempDir::new("ccproxy-apply");
+    apply_client_config(&dir.path_string(), "claude", PORT, TOKEN, &[]).unwrap();
+    // 第二次写入时 settings.json 已存在，验证 Windows 上也能原子覆盖
+    apply_client_config(&dir.path_string(), "claude", PORT, "t_new456", &[]).unwrap();
+    let written: Value = serde_json::from_str(&read(&dir.join("settings.json"))).unwrap();
+    assert_eq!(written["env"]["ANTHROPIC_AUTH_TOKEN"], json!("t_new456"));
+}
+
 #[cfg(unix)]
 #[test]
 fn claude_write_is_atomic_and_keeps_mode() {

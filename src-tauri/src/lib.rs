@@ -6,6 +6,7 @@ pub mod commands;
 pub mod config;
 pub mod convert;
 pub mod logger;
+pub mod platform;
 pub mod proxy;
 pub mod request_log;
 pub mod state;
@@ -38,7 +39,7 @@ fn is_hidden_launch(args: &[String]) -> bool {
 }
 
 fn bootstrap(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    logger::init("/tmp/ccproxy");
+    logger::init(platform::default_log_dir());
     logger::info("[App] 启动中", None);
 
     let config_manager = ConfigManager::new(None);

@@ -64,7 +64,7 @@ pub fn detect_dir_kind(dir_path: &str) -> Option<String> {
     None
 }
 
-// 内置扫描位置：前两个是 CLI 默认家目录，后两个是 Xcode 内置 Coding Assistant 的。
+// 内置扫描位置：CLI 默认家目录，以及 macOS 上 Xcode 内置 Coding Assistant 的位置。
 // kind 是「预期身份」：路径存在但内容不是这一家的不算数
 pub fn builtin_dirs(home: Option<&Path>) -> Vec<ClientDir> {
     let base = home.map(PathBuf::from).or_else(dirs::home_dir).unwrap_or_else(|| PathBuf::from("."));
@@ -73,15 +73,25 @@ pub fn builtin_dirs(home: Option<&Path>) -> Vec<ClientDir> {
         kind: kind.to_string(),
         path: path.to_string_lossy().to_string(),
     };
-    vec![
+    #[allow(unused_mut)]
+    let mut result = vec![
         make("claude", base.join(".claude")),
         make("codex", base.join(".codex")),
-        make(
+    ];
+    // Xcode 内置 Coding Assistant 只存在于 macOS；其他平台不要凭空扫描
+    // Library 目录，否则既无意义，也会让扫描结果带着不存在的路径。
+    #[cfg(target_os = "macos")]
+    {
+        result.push(make(
             "claude",
             base.join("Library").join("Developer").join("Xcode").join("CodingAssistant").join("ClaudeAgentConfig"),
-        ),
-        make("codex", base.join("Library").join("Developer").join("Xcode").join("CodingAssistant").join("codex")),
-    ]
+        ));
+        result.push(make(
+            "codex",
+            base.join("Library").join("Developer").join("Xcode").join("CodingAssistant").join("codex"),
+        ));
+    }
+    result
 }
 
 pub struct ScanResult {

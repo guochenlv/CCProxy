@@ -16,10 +16,16 @@ pub static QUITTING: AtomicBool = AtomicBool::new(false);
 
 const TRAY_ID: &str = "main";
 
-// 菜单栏那个图标：macOS 模板图（纯黑 + alpha），系统按深浅色自动反色。
-// 用 @2x 那张当源：底层会把显示尺寸统一压到 18pt，源分辨率高一些在视网膜屏上才不糊
+// macOS 用纯黑模板图，系统按深浅色自动反色；Windows 不认 template 标记，
+// 必须用带颜色的状态图，否则深色任务栏上看不清。
+#[cfg(target_os = "macos")]
 const ICON_RUNNING: &[u8] = include_bytes!("../../resources/icons/trayRunningTemplate@2x.png");
+#[cfg(target_os = "macos")]
 const ICON_STOPPED: &[u8] = include_bytes!("../../resources/icons/trayStoppedTemplate@2x.png");
+#[cfg(not(target_os = "macos"))]
+const ICON_RUNNING: &[u8] = include_bytes!("../../resources/icons/trayRunning.png");
+#[cfg(not(target_os = "macos"))]
+const ICON_STOPPED: &[u8] = include_bytes!("../../resources/icons/trayStopped.png");
 
 // 菜单里那枚圆点的颜色：中灰，深浅两种菜单背景上都看得见
 const MENU_DOT_GRAY: u8 = 142;
@@ -80,7 +86,6 @@ pub fn create(app: &AppHandle, state: &Arc<AppState>) -> tauri::Result<()> {
     }
     let mut builder = TrayIconBuilder::with_id(TRAY_ID)
         .tooltip("CCProxy")
-        .icon_as_template(true)
         .menu(&menu)
         // 左键不再弹菜单，改由 on_tray_icon_event 直接打开窗口；右键仍由系统弹菜单
         .show_menu_on_left_click(false)
@@ -96,6 +101,10 @@ pub fn create(app: &AppHandle, state: &Arc<AppState>) -> tauri::Result<()> {
                 show_window(tray.app_handle());
             }
         });
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder.icon_as_template(true);
+    }
     if let Some(icon) = icon {
         builder = builder.icon(icon);
     }
@@ -114,9 +123,16 @@ pub fn refresh(state: &AppState) {
         let _ = tray.set_menu(Some(menu));
     }
     if let Some(icon) = status_icon(&status.status) {
-        // 必须用 set_icon_with_as_template：单独调 set_icon 会新建一张 NSImage 并丢掉模板标记，
-        // 于是深色菜单栏里那枚图标会被原样画成黑色，而不是反色成白色
-        let _ = tray.set_icon_with_as_template(Some(icon), true);
+        // macOS 必须用 set_icon_with_as_template：单独调 set_icon 会新建一张 NSImage 并丢掉模板标记，
+        // 于是深色菜单栏里那枚图标会被原样画成黑色，而不是反色成白色。
+        #[cfg(target_os = "macos")]
+        {
+            let _ = tray.set_icon_with_as_template(Some(icon), true);
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = tray.set_icon(Some(icon));
+        }
     }
 }
 

@@ -33,13 +33,21 @@ npm run tauri:build    # 打包 .app / .dmg（产物在 src-tauri/target/release
 ./scripts/install.sh   # 装到 /Applications
 ```
 
+Windows 使用 Node.js >=21、Rust MSVC 工具链和 WebView2：
+
+```powershell
+npm ci
+npm run tauri:dev
+npm run build:win      # 生成 NSIS 安装包，产物在 src-tauri/target/release/bundle/nsis/
+```
+
 ## 东西放在哪
 
 | 内容 | 位置 |
 |---|---|
 | 配置 | `~/.ccproxy/app.json`（原子写；损坏时备份 `.bak` 再回落默认值） |
 | 请求日志、用量 | `~/.ccproxy/logs/`、`~/.ccproxy/usage/`（按天 JSONL，清理互不影响） |
-| 运行日志 | `/tmp/ccproxy/app.log` |
+| 运行日志 | macOS：`/tmp/ccproxy/app.log`；Windows：`%TEMP%\ccproxy\app.log` |
 
 关窗口不退出（代理要继续在后台服务），退出走菜单栏图标 → 退出 CCProxy。
 
@@ -55,7 +63,7 @@ npm run tauri:build    # 打包 .app / .dmg（产物在 src-tauri/target/release
 不确定标记在不在，先看一眼：`xattr -p com.apple.quarantine /Applications/CCProxy.app`，
 有输出才需要上面第三步。
 
-只编了 arm64，Intel Mac 跑不了；要免掉「首次放行」这步得做 Developer ID 签名 + 公证。
+只编了 arm64，Intel Mac 跑不了；要免掉「首次放行」这步得做 Developer ID 签名 + 公证。Windows 使用 `tauri.windows.conf.json` 生成 NSIS 安装包，正式分发建议加 Authenticode 签名。
 细节见[迁移记录的分发那节](docs/2026-10-14-electron-to-tauri.md)。
 
 ## 文档

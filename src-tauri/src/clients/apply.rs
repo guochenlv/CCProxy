@@ -58,7 +58,7 @@ fn write_file_atomic(target_path: &Path, content: &str) -> Result<(), String> {
     fs::write(&temp_path, content).map_err(|error| error.to_string())?;
     // write 的权限只是「请求值」，新建文件时会被 umask 削一道，显式 chmod 才是真的沿用原文件权限
     set_mode(&temp_path, mode);
-    fs::rename(&temp_path, target_path).map_err(|error| error.to_string())
+    crate::platform::replace_file(&temp_path, target_path)
 }
 
 // 配置文件本身是软链时，写它指向的真实文件。rename 会把链接本身换成普通文件——

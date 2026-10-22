@@ -18,6 +18,10 @@ fn provider(id: &str, models: Value) -> Value {
     json!({ "id": id, "name": id, "enabled": true, "baseUrl": format!("https://{id}.example.com"), "token": "sk-x", "models": models })
 }
 
+fn temp_absolute_path(name: &str) -> String {
+    std::env::temp_dir().join(name).to_string_lossy().to_string()
+}
+
 fn mapping(id: &str, client_model: &str, provider_id: &str) -> Value {
     json!({ "id": id, "enabled": true, "clientModel": client_model, "providerId": provider_id, "realModel": "glm-4.6" })
 }
@@ -89,6 +93,22 @@ fn save_is_atomic_with_600_mode() {
             & 0o777;
         assert_eq!(mode, 0o600);
     }
+}
+
+#[test]
+fn save_replaces_an_existing_config_file() {
+    let dir = TempDir::new("ccproxy-cfg");
+    let manager = manager(&dir);
+    manager
+        .save(&serde_json::to_value(create_default_config()).unwrap())
+        .unwrap();
+    let mut config = create_default_config();
+    config.settings.port = 19999;
+    // 第二次 save 时目标文件已经存在；Windows 的 rename 语义必须在这里也成功
+    manager
+        .save(&serde_json::to_value(&config).unwrap())
+        .unwrap();
+    assert_eq!(manager.load().config.settings.port, 19999);
 }
 
 #[test]
@@ -370,15 +390,16 @@ fn blank_windows_are_not_written_back_and_modalities_are_deduped() {
 
 #[test]
 fn client_dirs_require_id_kind_absolute_path() {
-    let good = json!({ "id": "d1", "kind": "claude", "path": "/Users/x/.claude-x" });
+    let good_path = TempDir::new("ccproxy-dir-good").path_string();
+    let good = json!({ "id": "d1", "kind": "claude", "path": good_path });
     let result = validate_config(&json!({
         "settings": {
             "clientDirs": [
                 good,
                 { "id": "d2", "kind": "codex", "path": "relative/.codex" },
-                { "id": "d3", "kind": "gemini", "path": "/Users/x/.gemini" },
-                { "kind": "claude", "path": "/Users/x/a" },
-                { "id": "d4", "kind": "claude", "path": "/Users/x/.claude-x" },
+                { "id": "d3", "kind": "gemini", "path": temp_absolute_path("gemini") },
+                { "kind": "claude", "path": temp_absolute_path("a") },
+                { "id": "d4", "kind": "claude", "path": good_path },
                 null
             ]
         }
@@ -410,9 +431,10 @@ fn client_dirs_not_array_is_reset() {
 fn client_dirs_round_trip() {
     let dir = TempDir::new("ccproxy-cfg");
     let manager = manager(&dir);
+    let client_path = TempDir::new("ccproxy-client-dir").path_string();
     let mut config = create_default_config();
     config.settings.client_dirs = serde_json::from_value(json!([
-        { "id": "d9", "kind": "codex", "path": "/Users/x/codex-config" }
+        { "id": "d9", "kind": "codex", "path": client_path }
     ]))
     .unwrap();
     manager
@@ -422,7 +444,7 @@ fn client_dirs_round_trip() {
     let dirs: Value = serde_json::to_value(&reloaded.config.settings.client_dirs).unwrap();
     assert_eq!(
         dirs,
-        json!([{ "id": "d9", "kind": "codex", "path": "/Users/x/codex-config" }])
+        json!([{ "id": "d9", "kind": "codex", "path": client_path }])
     );
 }
 

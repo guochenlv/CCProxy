@@ -1,5 +1,5 @@
-// 生成 macOS 托盘模板图标（纯黑 + alpha，系统自动反色适配深浅色）。
-// 输出 resources/icons/tray{Running,Stopped}Template.png 与 @2x。手写 PNG，零依赖。
+// 生成托盘图标：macOS 用纯黑模板图，Windows 用带颜色的运行/停止状态图。
+// 手写 PNG，零依赖。输出模板图和 Windows 状态图。
 // 用法：node scripts/generate-tray-icons.js
 
 'use strict';
@@ -29,7 +29,7 @@ function chunk(type, data) {
 }
 
 // 8 位 RGBA（色彩类型 6），每行前置一个 0 滤波器字节
-function makePng(size, alphaAt) {
+function makePng(size, alphaAt, color = [0, 0, 0]) {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(size, 0);
   ihdr.writeUInt32BE(size, 4);
@@ -40,9 +40,9 @@ function makePng(size, alphaAt) {
   for (let y = 0; y < size; y++) {
     raw[cursor++] = 0;
     for (let x = 0; x < size; x++) {
-      raw[cursor++] = 0;
-      raw[cursor++] = 0;
-      raw[cursor++] = 0;
+      raw[cursor++] = color[0];
+      raw[cursor++] = color[1];
+      raw[cursor++] = color[2];
       raw[cursor++] = alphaAt(x + 0.5, y + 0.5);
     }
   }
@@ -71,7 +71,9 @@ const SPECS = [
   { name: 'trayRunningTemplate.png', size: 16, radius: 6.2, innerRadius: 0 },
   { name: 'trayRunningTemplate@2x.png', size: 32, radius: 12.4, innerRadius: 0 },
   { name: 'trayStoppedTemplate.png', size: 16, radius: 6.2, innerRadius: 3.6 },
-  { name: 'trayStoppedTemplate@2x.png', size: 32, radius: 12.4, innerRadius: 7.2 }
+  { name: 'trayStoppedTemplate@2x.png', size: 32, radius: 12.4, innerRadius: 7.2 },
+  { name: 'trayRunning.png', size: 32, radius: 12.4, innerRadius: 0, color: [54, 170, 89] },
+  { name: 'trayStopped.png', size: 32, radius: 12.4, innerRadius: 7.2, color: [142, 148, 153] }
 ];
 
 const outDir = path.join(__dirname, '..', 'resources', 'icons');
@@ -79,7 +81,7 @@ fs.mkdirSync(outDir, { recursive: true });
 
 for (const spec of SPECS) {
   const center = spec.size / 2;
-  const png = makePng(spec.size, (x, y) => alphaFor(Math.hypot(x - center, y - center), spec));
+  const png = makePng(spec.size, (x, y) => alphaFor(Math.hypot(x - center, y - center), spec), spec.color);
   fs.writeFileSync(path.join(outDir, spec.name), png);
   console.log(`${spec.name}  ${png.length} bytes`);
 }
